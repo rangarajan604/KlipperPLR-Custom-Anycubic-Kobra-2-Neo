@@ -1,4 +1,12 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.pi 4b
+**/kiauh/
+**/kiauh_backups/
+**/klipper/
+**/klippy-env/
+**/mainsail/
+**/mainsail-config/
+**/moonraker/
+**/moonraker-env/
+**/gcodes/

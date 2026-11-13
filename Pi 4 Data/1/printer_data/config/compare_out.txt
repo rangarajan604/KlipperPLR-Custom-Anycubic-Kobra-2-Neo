@@ -1,0 +1,106 @@
+@{InputObject=##  e.g. with a different park position front left and a minimal height of 50; SideIndicator==>}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE'] | default({}) %}; SideIndicator==>}
+@{InputObject=  {% set allow_park = client.park_at_cancel | default(false) | lower == 'true' %}; SideIndicator==>}
+@{InputObject=  {% set retract = client.cancel_retract | default(5.0) | abs %}; SideIndicator==>}
+@{InputObject=  {% set park_x = "" if (client.park_at_cancel_x | default(none) is none); SideIndicator==>}
+@{InputObject=  {% set park_y = "" if (client.park_at_cancel_y | default(none) is none); SideIndicator==>}
+@{InputObject=  {% set custom_park = park_x | length > 0 or park_y | length > 0 %}; SideIndicator==>}
+@{InputObject=  {client.user_cancel_macro | default("")}; SideIndicator==>}
+@{InputObject=  ##### get user parameters or use default #####; SideIndicator==>}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE'] | default({}) %}; SideIndicator==>}
+@{InputObject=  {% set idle_timeout = client.idle_timeout | default(0) %}; SideIndicator==>}
+@{InputObject=              else True  if params.RESTORE | default(1) | int == 1 else False %}; SideIndicator==>}
+@{InputObject=  {client.user_pause_macro | default("")}; SideIndicator==>}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE'] | default({}) %}; SideIndicator==>}
+@{InputObject=  {% set sp_move = client.speed_move | default(velocity) %}; SideIndicator==>}
+@{InputObject=  {% set runout_resume = True if client.runout_sensor | default("") == ""   # no runout; SideIndicator==>}
+@{InputObject=  {% if printer.idle_timeout.state | upper == "IDLE" or idle_state %}; SideIndicator==>}
+@{InputObject=      # we need to use the unicode (\u00B0) for the ° as py2 env's would throw an error otherwise; SideIndicator==>}
+@{InputObject=    {% else %}; SideIndicator==>}
+@{InputObject=      {client.user_resume_macro | default("")}; SideIndicator==>}
+@{InputObject=      RESUME_BASE VELOCITY={params.VELOCITY | default(sp_move)}; SideIndicator==>}
+@{InputObject=  {% if not (runout_resume and do_resume) %}; SideIndicator==>}
+@{InputObject=      RESPOND TYPE=command MSG='{"action:prompt_text %s" % element}'; SideIndicator==>}
+@{InputObject=; SideIndicator==>}
+@{InputObject=# Usage: SET_PAUSE_NEXT_LAYER [ENABLE=[0 | 1]] [MACRO=<name>]; SideIndicator==>}
+@{InputObject=  {% set ENABLE = params.ENABLE | default(1)|int != 0 %}; SideIndicator==>}
+@{InputObject=  {% set MACRO = params.MACRO | default(pause_next_layer.call, True) %}; SideIndicator==>}
+@{InputObject=# Usage: SET_PAUSE_AT_LAYER [ENABLE=[0 | 1]] [LAYER=<number>] [MACRO=<name>]; SideIndicator==>}
+@{InputObject=  {% set ENABLE = params.ENABLE | int != 0 if params.ENABLE is defined; SideIndicator==>}
+@{InputObject=  {% set LAYER = params.LAYER | default(pause_at_layer.layer) | int %}; SideIndicator==>}
+@{InputObject=  {% set MACRO = params.MACRO | default(pause_at_layer.call, True) %}; SideIndicator==>}
+@{InputObject=  {% elif pause_at_layer.enable and params.CURRENT_LAYER is defined and params.CURRENT_LAYER | int == pause_at_layer.layer %}; SideIndicator==>}
+@{InputObject=; SideIndicator==>}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE'] | default({}) %}; SideIndicator==>}
+@{InputObject=  {% set use_custom     = client.use_custom_pos | default(false) | lower == 'true' %}; SideIndicator==>}
+@{InputObject=  {% set custom_park_x  = client.custom_park_x | default(0.0) %}; SideIndicator==>}
+@{InputObject=  {% set custom_park_y  = client.custom_park_y | default(0.0) %}; SideIndicator==>}
+@{InputObject=  {% set park_dz        = client.custom_park_dz | default(2.0) | abs %}; SideIndicator==>}
+@{InputObject=  {% set sp_hop         = client.speed_hop | default(15) * 60 %}; SideIndicator==>}
+@{InputObject=  {% set sp_move        = client.speed_move | default(velocity) * 60 %}; SideIndicator==>}
+@{InputObject=  {% set cone      = printer.toolhead.cone_start_z | default(max.z) %} ; height as long the toolhead can reach max and min of an delta; SideIndicator==>}
+@{InputObject=  {% set z_min = params.Z_MIN | default(0) | float %}; SideIndicator==>}
+@{InputObject=  {% set z_park = [[(act.z + park_dz), z_min]|max, (max.z - origin.z)] | min %}; SideIndicator==>}
+@{InputObject=; SideIndicator==>}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE'] | default({}) %}; SideIndicator==>}
+@{InputObject=  {% set use_fw_retract = (client.use_fw_retract | default(false) | lower == 'true') and (printer.firmware_retraction is defined) %}; SideIndicator==>}
+@{InputObject=  {% set length = params.LENGTH | default(client.unretract) | default(1.0) | float %}; SideIndicator==>}
+@{InputObject=  {% set speed = params.SPEED | default(client.speed_unretract) | default(35) %}; SideIndicator==>}
+@{InputObject=        G1 E{length} F{(speed | float | abs) * 60}; SideIndicator==>}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE'] | default({}) %}; SideIndicator==>}
+@{InputObject=  {% set length = params.LENGTH | default(client.retract) | default(1.0) | float %}; SideIndicator==>}
+@{InputObject=  {% set speed = params.SPEED | default(client.speed_retract) | default(35) %}; SideIndicator==>}
+@{InputObject=  _CLIENT_EXTRUDE LENGTH=-{length | float | abs} SPEED={speed | float | abs}; SideIndicator==>}
+@{InputObject=##  e.g. with a different park position front left and a minimal height of 50 ; SideIndicator=<=}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE']|default({}) %}; SideIndicator=<=}
+@{InputObject=  {% set allow_park = client.park_at_cancel|default(false)|lower == 'true' %}; SideIndicator=<=}
+@{InputObject=  {% set retract = client.cancel_retract|default(5.0)|abs %}; SideIndicator=<=}
+@{InputObject=  {% set park_x = "" if (client.park_at_cancel_x|default(none) is none); SideIndicator=<=}
+@{InputObject=  {% set park_y = "" if (client.park_at_cancel_y|default(none) is none); SideIndicator=<=}
+@{InputObject=  {% set custom_park = park_x|length > 0 or park_y|length > 0 %}; SideIndicator=<=}
+@{InputObject=  {client.user_cancel_macro|default("")}; SideIndicator=<=}
+@{InputObject=  ##### get user parameters or use default ##### ; SideIndicator=<=}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE']|default({}) %}; SideIndicator=<=}
+@{InputObject=  {% set idle_timeout = client.idle_timeout|default(0) %}; SideIndicator=<=}
+@{InputObject=              else True  if params.RESTORE|default(1)|int == 1 else False %}; SideIndicator=<=}
+@{InputObject=  {client.user_pause_macro|default("")}; SideIndicator=<=}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE']|default({}) %}; SideIndicator=<=}
+@{InputObject=  {% set sp_move = client.speed_move|default(velocity) %}; SideIndicator=<=}
+@{InputObject=  {% set runout_resume = True if client.runout_sensor|default("") == ""     # no runout; SideIndicator=<=}
+@{InputObject=  {% if printer.idle_timeout.state|upper == "IDLE" or idle_state %}; SideIndicator=<=}
+@{InputObject=      # we need to use the unicode (\u00B0) for the ° as py2 env's would throw an error otherwise ; SideIndicator=<=}
+@{InputObject=    {% else %} ; SideIndicator=<=}
+@{InputObject=      {client.user_resume_macro|default("")}; SideIndicator=<=}
+@{InputObject=      RESUME_BASE VELOCITY={params.VELOCITY|default(sp_move)}; SideIndicator=<=}
+@{InputObject=  {% if not (runout_resume and do_resume) %} ; SideIndicator=<=}
+@{InputObject=      RESPOND TYPE=command MSG='{"action:prompt_text %s" % element}' ; SideIndicator=<=}
+@{InputObject=  ; SideIndicator=<=}
+@{InputObject=# Usage: SET_PAUSE_NEXT_LAYER [ENABLE=[0|1]] [MACRO=<name>]; SideIndicator=<=}
+@{InputObject=  {% set ENABLE = params.ENABLE|default(1)|int != 0 %}; SideIndicator=<=}
+@{InputObject=  {% set MACRO = params.MACRO|default(pause_next_layer.call, True) %}; SideIndicator=<=}
+@{InputObject=# Usage: SET_PAUSE_AT_LAYER [ENABLE=[0|1]] [LAYER=<number>] [MACRO=<name>]; SideIndicator=<=}
+@{InputObject=  {% set ENABLE = params.ENABLE|int != 0 if params.ENABLE is defined; SideIndicator=<=}
+@{InputObject=  {% set LAYER = params.LAYER|default(pause_at_layer.layer)|int %}; SideIndicator=<=}
+@{InputObject=  {% set MACRO = params.MACRO|default(pause_at_layer.call, True) %}; SideIndicator=<=}
+@{InputObject=  {% elif pause_at_layer.enable and params.CURRENT_LAYER is defined and params.CURRENT_LAYER|int == pause_at_layer.layer %}; SideIndicator=<=}
+@{InputObject=  ; SideIndicator=<=}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE']|default({}) %}; SideIndicator=<=}
+@{InputObject=  {% set use_custom     = client.use_custom_pos|default(false)|lower == 'true' %}; SideIndicator=<=}
+@{InputObject=  {% set custom_park_x  = client.custom_park_x|default(0.0) %}; SideIndicator=<=}
+@{InputObject=  {% set custom_park_y  = client.custom_park_y|default(0.0) %}; SideIndicator=<=}
+@{InputObject=  {% set park_dz        = client.custom_park_dz|default(2.0)|abs %}; SideIndicator=<=}
+@{InputObject=  {% set sp_hop         = client.speed_hop|default(15) * 60 %}; SideIndicator=<=}
+@{InputObject=  {% set sp_move        = client.speed_move|default(velocity) * 60 %}; SideIndicator=<=}
+@{InputObject=  {% set cone      = printer.toolhead.cone_start_z|default(max.z) %} ; height as long the toolhead can reach max and min of an delta; SideIndicator=<=}
+@{InputObject=  {% set z_min = params.Z_MIN|default(0)|float %}; SideIndicator=<=}
+@{InputObject=  {% set z_park = [[(act.z + park_dz), z_min]|max, (max.z - origin.z)]|min %}; SideIndicator=<=}
+@{InputObject=  ; SideIndicator=<=}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE']|default({}) %}; SideIndicator=<=}
+@{InputObject=  {% set use_fw_retract = (client.use_fw_retract|default(false)|lower == 'true') and (printer.firmware_retraction is defined) %}; SideIndicator=<=}
+@{InputObject=  {% set length = params.LENGTH|default(client.unretract)|default(1.0)|float %}; SideIndicator=<=}
+@{InputObject=  {% set speed = params.SPEED|default(client.speed_unretract)|default(35) %}; SideIndicator=<=}
+@{InputObject=        G1 E{length} F{(speed|float|abs) * 60}; SideIndicator=<=}
+@{InputObject=  {% set client = printer['gcode_macro _CLIENT_VARIABLE']|default({}) %}; SideIndicator=<=}
+@{InputObject=  {% set length = params.LENGTH|default(client.retract)|default(1.0)|float %}; SideIndicator=<=}
+@{InputObject=  {% set speed = params.SPEED|default(client.speed_retract)|default(35) %}; SideIndicator=<=}
+@{InputObject=  _CLIENT_EXTRUDE LENGTH=-{length|float|abs} SPEED={speed|float|abs}; SideIndicator=<=}

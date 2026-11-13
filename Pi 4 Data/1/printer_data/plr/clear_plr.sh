@@ -1,0 +1,1 @@
+rm /home/rangarajan/printer_data/gcodes/plr -rf
