@@ -9571,3 +9571,104 @@ Completed with input: {
 }
 
 I canâ€™t add the full chat verbatim because the earlier GitHub conversation has 45 messages omitted here, and no full export was provided. I left [Chat copy.txt]() unchanged. Attach or paste the chat from the beginning, and I can add it.
+
+
+PART 3 - PI INSTALLATION AND TROUBLESHOOTING (NOVEMBER 15, 2026)
+================================================================
+
+This section records the later Pi installation and verification discussion.
+Long shell output is summarized where it repeated the same status.
+
+1. INSTALL COMMAND AND REPOSITORY DIRECTORY
+
+User: Cloned `KlipperPLR-Custom-Anycubic-Kobra-2-Neo`, then tried to enter
+`KlipperPLR-Custom-Anycubick_kobra_neo_2`; the directory was not found.
+
+Assistant: The clone creates `~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo`.
+The README and installer were corrected to use that canonical repository URL
+and directory name.
+
+User: Retried with the correct directory, but `./install.sh` returned
+`Permission denied`.
+
+Assistant: The script is tracked without the executable bit. Use
+`bash ./install.sh`; the README was updated to show that command.
+
+User: Ran the installer successfully. It reported `Installation complete`.
+After uninstalling, the repository directory remained, so another `git clone`
+reported that the destination already existed. Running `bash ./install.sh`
+from that existing directory still completed.
+
+Assistant: Confirmed that the active config include and installed PLR files
+were present. Recommended running `RESTART` in Mainsail and waiting for
+Klipper to report Ready.
+
+2. MOONRAKER COULD NOT START
+
+User: Mainsail reported it could not connect to Moonraker.
+
+Assistant: Read-only checks showed Moonraker repeatedly failing on a stale
+`[include update_plr.cfg]` directive because that file did not exist.
+The installed custom updater config was `update_plr_custom.cfg`.
+
+User: Backed up `moonraker.conf`, commented out only the missing legacy include,
+and restarted Moonraker. The service became active, but the first immediate
+local API check returned HTTP `000`.
+
+Assistant: Explained that an active service does not guarantee its API has
+finished starting and requested a later status and listening-port check.
+
+User: Follow-up checks showed Moonraker listening on port 7125 and the API
+returned HTTP `200`. The logs also showed Klipper could not open
+`/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`.
+
+3. PRINTER USB / MCU CONNECTION
+
+User: Checked configured and available serial devices. The config expected
+`/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0`, but `/dev/serial`,
+`/dev/ttyUSB*`, and `/dev/ttyACM*` were all absent.
+
+User: `lsusb` listed the Raspberry Pi root hubs, a VIA Labs hub, and an OPPO
+realme GT 6T, but no printer serial adapter.
+
+Assistant: Concluded that Moonraker was reachable, but Klipper could not
+connect to the printer because the Pi was not detecting its USB serial
+device. Recommended checking printer power and a data-capable USB cable,
+not guessing a serial path or flashing firmware, and not attempting recovery
+until Klipper is ready.
+
+4. REVIEW OF `Pi 4 Data\3` AND COMMANDS
+
+Assistant: Checked the uploaded snapshot. `printer.cfg` includes
+`plr_custom.cfg`; `moonraker.conf` includes `update_plr_custom.cfg` and has
+the missing legacy `update_plr.cfg` include commented out; the updater file
+uses the canonical repository URL and path; and the custom PLR files exist.
+Moonraker's earlier include errors were historical, before the fix. The
+snapshot still showed the missing MCU serial device.
+
+The README was updated locally with the fresh-install commands:
+
+```sh
+cd ~
+git clone https://github.com/rangarajan604/KlipperPLR-Custom-Anycubic-Kobra-2-Neo.git
+cd ~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo
+bash ./install.sh
+cd ~
+```
+
+For an existing checkout, do not clone again:
+
+```sh
+cd ~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo
+git pull --ff-only
+bash ./install.sh
+cd ~
+```
+
+`cd ~` returns to the home directory; `cd .` leaves the current directory
+unchanged. The README changes are local workspace edits and were not pushed
+to GitHub during this discussion.
+
+No printer motion or heater test was performed. Do not use
+`RESUME_INTERRUPTED` until the printer USB device is detected and Klipper
+reports Ready.

@@ -40,13 +40,25 @@ Run the local test suite before deploying changes:
 python3 -m unittest discover -s tests -v
 ```
 
-After this project is pushed to your GitHub repository, clone it on the printer:
+On a fresh printer install, clone the repository once:
 
 ```bash
 cd ~
 git clone https://github.com/rangarajan604/KlipperPLR-Custom-Anycubic-Kobra-2-Neo.git
-cd KlipperPLR-Custom-Anycubic-Kobra-2-Neo
+cd ~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo
 bash ./install.sh
+cd ~
+```
+
+`cd ~` returns to the home directory; `cd .` leaves you in the current
+directory. If the repository directory already exists, do not clone it again.
+To update an existing checkout, run:
+
+```bash
+cd ~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo
+git pull --ff-only
+bash ./install.sh
+cd ~
 ```
 
 If the GitHub repository is private, configure Git access for the printer's
@@ -70,6 +82,33 @@ Klipper commands. Back up your printer configuration before installation.
 
 After installation, run `RESTART` from the Mainsail console and wait for Klipper
 to become ready.
+
+### Moonraker and printer connection checks
+
+Before restarting, check `printer_data/config/moonraker.conf` for a stale
+`[include update_plr.cfg]` line left by an older PLR. If
+`printer_data/config/update_plr.cfg` does not exist, back up `moonraker.conf`
+and comment out only that stale include. Keep the custom
+`[include update_plr_custom.cfg]` entry.
+
+If Mainsail cannot connect to Moonraker, check the service and local API:
+
+```bash
+systemctl is-active moonraker
+curl --max-time 5 -sS -o /dev/null -w '%{http_code}\n' \
+  http://127.0.0.1:7125/server/info
+```
+
+Klipper also needs to detect the printer's USB serial device. If Klipper cannot
+connect to the MCU, check the printer power and USB data cable, then run:
+
+```bash
+lsusb
+ls -l /dev/serial/by-id/
+```
+
+Do not change the `[mcu]` serial path to a guessed value or run recovery until
+the printer appears and Klipper reports ready.
 
 ## Slicer G-code hooks
 
