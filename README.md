@@ -44,7 +44,7 @@ After this project is pushed to your GitHub repository, clone it on the printer:
 
 ```bash
 cd ~
-git clone https://github.com/rangarajan604/KlipperPLR-Custom-Anycubick_kobra_neo_2.git
+git clone https://github.com/rangarajan604/KlipperPLR-Custom-Anycubic-Kobra-2-Neo.git
 cd KlipperPLR-Custom-Anycubick_kobra_neo_2
 ./install.sh
 ```
