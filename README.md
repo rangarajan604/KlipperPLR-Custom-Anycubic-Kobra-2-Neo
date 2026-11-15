@@ -46,7 +46,7 @@ After this project is pushed to your GitHub repository, clone it on the printer:
 cd ~
 git clone https://github.com/rangarajan604/KlipperPLR-Custom-Anycubic-Kobra-2-Neo.git
 cd KlipperPLR-Custom-Anycubic-Kobra-2-Neo
-./install.sh
+bash ./install.sh
 ```
 
 If the GitHub repository is private, configure Git access for the printer's
@@ -138,7 +138,7 @@ lower that heater's factor in Mainsail.
 
 ## Uninstall
 
-Run `./uninstall.sh` from this project directory on the printer. It removes
+Run `bash ./uninstall.sh` from this project directory on the printer. It removes
 only this project's config include, update-manager entry, and dedicated
 `plr_custom` files. It does not remove shared Klipper extras or saved
 variable data.
