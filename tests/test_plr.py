@@ -542,5 +542,13 @@ class InstallConflictTests(unittest.TestCase):
         self.assertTrue(any("unmanaged PLR config" in item for item in conflicts))
 
 
+class ShellScriptLineEndingTests(unittest.TestCase):
+    def test_shell_scripts_use_lf_line_endings(self):
+        project_dir = Path(__file__).resolve().parents[1]
+        for path in project_dir.glob("*.sh"):
+            with self.subTest(script=path.name):
+                self.assertNotIn(b"\r", path.read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()

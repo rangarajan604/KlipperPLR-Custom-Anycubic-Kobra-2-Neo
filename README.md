@@ -250,6 +250,15 @@ marker. After successful cleanup, if run from the standard clone at
 to a timestamped `.uninstalled-*` backup name. This removes it from the usual
 clone path while preserving repository history, local edits, and other files.
 
+If Bash reports an error such as `set: pipefail: invalid option name`, the
+script may have Windows CRLF line endings. Convert it to Unix line endings and
+retry:
+
+```bash
+sed -i 's/\r$//' uninstall.sh
+bash ./uninstall.sh
+```
+
 ## License and attribution
 
 The independently written recovery code is licensed under GPL-3.0-only; the
