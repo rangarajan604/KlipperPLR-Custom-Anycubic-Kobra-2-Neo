@@ -74,9 +74,10 @@ bash ./install.sh
 cd ~
 ```
 
-If the GitHub repository is private, configure Git access for the printer's
-Moonraker service account before relying on its update-manager entry. Never put
-a GitHub token in this project or its install script.
+This repository is public, so cloning and Moonraker updates do not require
+GitHub credentials. If you make a fork private, configure secure Git access
+for the Moonraker service account before using its update-manager entry. Never
+put a GitHub token in this project or its install script.
 
 The installer:
 
