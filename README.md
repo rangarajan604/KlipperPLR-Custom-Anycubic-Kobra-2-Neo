@@ -10,6 +10,19 @@ It is not a copy of the KlipperPLR or YUMI_PLR recovery generator. The included
 `gcode_shell_command.py` is a separate GPL-3.0-licensed helper; its copyright
 and license notice are retained.
 
+**License:** GPL-3.0-only. See [LICENSE](./LICENSE).
+
+## AI-assisted development and disclaimer
+
+This project was created with the assistance of AI tools and may contain
+errors, unsafe assumptions, or incompatibilities. It is provided "AS IS",
+without warranties of any kind, to the extent permitted by the applicable
+license and law. The project authors and maintainers are not responsible for
+damage, failed prints, data loss, or other consequences resulting from its
+use. Review and test all code and configuration, back up printer settings,
+and supervise the printer during operation. Nothing in this notice excludes
+rights or liability that cannot legally be excluded.
+
 ## Important limitations
 
 Power-loss recovery is inherently approximate. It cannot detect whether the
@@ -184,9 +197,9 @@ variable data.
 
 ## License and attribution
 
-The independently written recovery code is licensed under GPL-3.0-only.
-The included `gcode_shell_command.py` retains its original copyright and
-GPLv3 notice. See `LICENSE`.
+The independently written recovery code is licensed under GPL-3.0-only; the
+full license text is in [LICENSE](./LICENSE). The included
+`gcode_shell_command.py` retains its original copyright and GPLv3 notice.
 
 The project is not affiliated with Anycubic, BIGTREETECH, Klipper, Moonraker,
 or Mainsail.
