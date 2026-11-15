@@ -180,9 +180,9 @@ Edit the constants near the top of `[gcode_macro RESUME_INTERRUPTED]` in
 {% set bed_preheat_factor = 1.05 %}
 {% set nozzle_preheat_factor = 1.05 %}
 {% set z_lift = 2 %}
-{% set dwell_ms = 0 %}
+{% set dwell_s = 60 %}
 {% set fan_off_layers = 2 %}
-{% set enclosure_wait_ms = 30000 %}
+{% set enclosure_wait_s = 30 %}
 ```
 
 What each setting does:
@@ -195,26 +195,25 @@ What each setting does:
   range is 1.00-1.10.
 - `z_lift = 2`: raises the nozzle 2 mm before XY homing to help avoid hitting
   the print. The allowed range is 0-20 mm.
-- `dwell_ms = 0`: adds an optional wait after the bed and nozzle have reached
+- `dwell_s = 60`: waits 60 seconds after the bed and nozzle have reached
   their temporary preheat temperatures, before their targets are returned to
-  normal. This can give the hotend a little extra time to stabilize; it is
-  separate from the enclosure wait. Klipper's `G4` accepts `S` in seconds or
-  `P` in milliseconds; this setting currently generates `G4 P...`, so enter
-  milliseconds (`5000` is 5 seconds). `0` means no extra wait. The allowed
-  range is 0-60000 ms.
+  normal. This can give the hotend extra time to stabilize; it is separate
+  from the enclosure wait. Use `0` for no extra wait. The allowed range is
+  0-60 seconds.
 - `fan_off_layers = 2`: keeps the part-cooling fan off for the first 2 resumed
   layers, then restores the fan speed from the print file. Use `0` to disable
   this pause; allowed values are 0, 1, or 2.
-- `enclosure_wait_ms = 30000`: waits 30,000 milliseconds (30 seconds) after
-  XY homing before continuing, allowing the enclosure to warm. Use `0` for no
-  wait; the allowed range is 0-60000 ms.
+- `enclosure_wait_s = 30`: waits 30 seconds after XY homing before continuing,
+  allowing the enclosure to warm. Use `0` for no wait; the allowed range is
+  0-60 seconds.
 
 For an existing installation, the installer preserves your active config.
-Add the two new settings to its `RESUME_INTERRUPTED` macro and pass
-`{fan_off_layers} {enclosure_wait_ms}` after `{dwell_ms}` in its
-`RUN_SHELL_COMMAND` parameters to make them editable in Mainsail. The updated
-shell script defaults to 2 layers and 30 seconds if those parameters are not
-passed.
+Update its `RESUME_INTERRUPTED` macro to use `dwell_s` and `enclosure_wait_s`
+instead of the old millisecond names, set `enclosure_wait_s` to `30` for the
+same 30-second delay, and pass `{fan_off_layers} {enclosure_wait_s}` after
+`{dwell_s}` in its `RUN_SHELL_COMMAND` parameters. This keeps the settings
+editable in Mainsail. The updated shell script defaults to 2 fan-off layers
+and a 30-second enclosure wait if those parameters are not passed.
 
 The script reads **normal** bed and nozzle targets from the interrupted
 G-code's metadata (preferred) or heater commands before the resume position.
@@ -229,7 +228,7 @@ G-code's fan setting is restored. The hotend heatsink fan
 `fan_off_layers` may be 0, 1, or 2; 0 disables the fan pause. The layer count
 uses upward absolute Z moves in the source G-code, so inspect the generated
 recovery file if the slicer uses Z-hop. Enclosure wait and dwell are limited
-to 0-60000 ms; lift is limited to 0-20 mm; preheat factors are limited to
+to 0-60 seconds; lift is limited to 0-20 mm; preheat factors are limited to
 1.00-1.10. Klipper still enforces the printer's configured heater maximums.
 If a preheat exceeds a heater's maximum, recovery will fail; lower that
 heater's factor in Mainsail.

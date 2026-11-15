@@ -56,7 +56,7 @@ class RecoveryGenerationTests(unittest.TestCase):
         bed_factor=1.05,
         nozzle_factor=1.05,
         fan_off_layers=0,
-        enclosure_wait_ms=0,
+        enclosure_wait_s=0,
     ):
         return plr.build_recovery(
             self.source,
@@ -68,7 +68,7 @@ class RecoveryGenerationTests(unittest.TestCase):
             2,
             0,
             fan_off_layers,
-            enclosure_wait_ms,
+            enclosure_wait_s,
         )
 
     def test_reads_normal_targets_and_ignores_first_layer_targets(self):
@@ -80,7 +80,7 @@ class RecoveryGenerationTests(unittest.TestCase):
             "M190 S57.75",
             "M104 S199.5",
             "M109 S199.5",
-            "G4 P0",
+            "G4 S0",
             "M140 S55",
             "M104 S190",
             "G1 Z2 F600",
@@ -94,15 +94,15 @@ class RecoveryGenerationTests(unittest.TestCase):
         self.assertIn("M106 S128", generated)
         self.assertIn("M83", generated)
         home_index = generated.index("G28 X Y")
-        self.assertEqual(generated[home_index + 1], "G4 P0")
+        self.assertEqual(generated[home_index + 1], "G4 S0")
 
     def test_part_fan_stays_off_for_two_layers_then_restores(self):
         self.write_gcode()
-        self.generate(fan_off_layers=2, enclosure_wait_ms=30000)
+        self.generate(fan_off_layers=2, enclosure_wait_s=30)
         generated = self.output.read_text(encoding="utf-8").splitlines()
         home_index = generated.index("G28 X Y")
         fan_off_index = generated.index("M106 S0")
-        wait_index = generated.index("G4 P30000")
+        wait_index = generated.index("G4 S30")
         resume_index = generated.index("G1 X20 Y20 F6000")
         restore_index = generated.index("G1 Z0.8 F600")
         fan_restore_index = generated.index("M106 S160")
@@ -116,7 +116,7 @@ class RecoveryGenerationTests(unittest.TestCase):
 
     def test_part_fan_can_resume_after_one_layer(self):
         self.write_gcode()
-        self.generate(fan_off_layers=1, enclosure_wait_ms=30000)
+        self.generate(fan_off_layers=1, enclosure_wait_s=30)
         generated = self.output.read_text(encoding="utf-8").splitlines()
         self.assertLess(
             generated.index("M106 S128"), generated.index("G1 Z0.6 F600")
@@ -126,6 +126,32 @@ class RecoveryGenerationTests(unittest.TestCase):
         self.write_gcode()
         with self.assertRaises(plr.RecoveryError):
             self.generate(fan_off_layers=3)
+
+    def test_wait_settings_use_seconds_in_generated_gcode(self):
+        self.write_gcode()
+        plr.build_recovery(
+            self.source,
+            0.2,
+            self.output,
+            "PART_B",
+            1.05,
+            1.05,
+            2,
+            1.5,
+            0,
+            30,
+        )
+
+        generated = self.output.read_text(encoding="utf-8").splitlines()
+
+        self.assertIn("G4 S1.5", generated)
+        self.assertIn("G4 S30", generated)
+        self.assertNotIn("G4 P1500", generated)
+
+    def test_wait_settings_reject_values_over_sixty_seconds(self):
+        self.write_gcode()
+        with self.assertRaises(plr.RecoveryError):
+            self.generate(enclosure_wait_s=61)
 
     def test_uses_material_specific_targets(self):
         self.write_gcode(bed=100, nozzle=245, first_bed=110, first_nozzle=255)
@@ -197,8 +223,6 @@ class RecoveryGenerationTests(unittest.TestCase):
                 "1.05",
                 "--z-lift",
                 "2",
-                "--dwell-ms",
-                "0",
             ],
         ):
             self.assertEqual(plr.main(), 0)
@@ -207,7 +231,8 @@ class RecoveryGenerationTests(unittest.TestCase):
             encoding="utf-8"
         ).splitlines()
         self.assertIn("M106 S0", generated)
-        self.assertIn("G4 P30000", generated)
+        self.assertIn("G4 S60", generated)
+        self.assertIn("G4 S30", generated)
 
     def test_clear_removes_only_generated_gcode_files(self):
             variables = self.root / "variables.cfg"

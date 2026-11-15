@@ -149,9 +149,9 @@ def validate_options(
     bed_factor: float,
     nozzle_factor: float,
     z_lift: float,
-    dwell_ms: int,
+    dwell_s: float,
     fan_off_layers: int,
-    enclosure_wait_ms: int,
+    enclosure_wait_s: float,
 ) -> None:
     if not math.isfinite(bed_factor) or not 1.0 <= bed_factor <= 1.10:
         raise RecoveryError("Bed preheat factor must be between 1.00 and 1.10")
@@ -159,12 +159,12 @@ def validate_options(
         raise RecoveryError("Nozzle preheat factor must be between 1.00 and 1.10")
     if not math.isfinite(z_lift) or not 0 <= z_lift <= 20:
         raise RecoveryError("Z lift must be between 0 and 20 mm")
-    if not 0 <= dwell_ms <= 60000:
-        raise RecoveryError("Dwell must be between 0 and 60000 ms")
+    if not math.isfinite(dwell_s) or not 0 <= dwell_s <= 60:
+        raise RecoveryError("Dwell must be between 0 and 60 seconds")
     if not 0 <= fan_off_layers <= 2:
         raise RecoveryError("Part-cooling fan off layers must be 0, 1, or 2")
-    if not 0 <= enclosure_wait_ms <= 60000:
-        raise RecoveryError("Enclosure wait must be between 0 and 60000 ms")
+    if not math.isfinite(enclosure_wait_s) or not 0 <= enclosure_wait_s <= 60:
+        raise RecoveryError("Enclosure wait must be between 0 and 60 seconds")
 
 
 def build_recovery(
@@ -175,17 +175,17 @@ def build_recovery(
     bed_factor: float,
     nozzle_factor: float,
     z_lift: float,
-    dwell_ms: int,
+    dwell_s: float,
     fan_off_layers: int = 2,
-    enclosure_wait_ms: int = 30000,
+    enclosure_wait_s: float = 30,
 ) -> Tuple[float, float, float]:
     validate_options(
         bed_factor,
         nozzle_factor,
         z_lift,
-        dwell_ms,
+        dwell_s,
         fan_off_layers,
-        enclosure_wait_ms,
+        enclosure_wait_s,
     )
     if not math.isfinite(saved_z) or saved_z <= 0:
         raise RecoveryError("Saved Z must be a positive finite number")
@@ -286,7 +286,7 @@ def build_recovery(
         f"M190 S{bed_temp * bed_factor:g}",
         f"M104 S{nozzle_temp * nozzle_factor:g}",
         f"M109 S{nozzle_temp * nozzle_factor:g}",
-        f"G4 P{dwell_ms}",
+        f"G4 S{dwell_s:g}",
         f"M140 S{bed_temp:g}",
         f"M104 S{nozzle_temp:g}",
         "G91",
@@ -298,7 +298,7 @@ def build_recovery(
         generated.append("M106 S0")
     generated.extend(
         [
-            f"G4 P{enclosure_wait_ms}",
+            f"G4 S{enclosure_wait_s:g}",
             "EXCLUDE_OBJECT_DEFINE RESET=1",
         ]
     )
@@ -369,9 +369,9 @@ def run_generate(args: argparse.Namespace) -> None:
         args.bed_factor,
         args.nozzle_factor,
         args.z_lift,
-        args.dwell_ms,
+        args.dwell_s,
         args.fan_off_layers,
-        args.enclosure_wait_ms,
+        args.enclosure_wait_s,
     )
 
 
@@ -398,9 +398,9 @@ def make_parser() -> argparse.ArgumentParser:
     generate.add_argument("--bed-factor", type=float, default=1.05)
     generate.add_argument("--nozzle-factor", type=float, default=1.05)
     generate.add_argument("--z-lift", type=float, default=2)
-    generate.add_argument("--dwell-ms", type=int, default=0)
+    generate.add_argument("--dwell-s", type=float, default=60)
     generate.add_argument("--fan-off-layers", type=int, default=2)
-    generate.add_argument("--enclosure-wait-ms", type=int, default=30000)
+    generate.add_argument("--enclosure-wait-s", type=float, default=30)
     clear = subparsers.add_parser("clear", help="remove the saved recovery G-code")
     clear.add_argument("--variables", type=Path, required=True)
     clear.add_argument("--output-dir", type=Path, default=None)

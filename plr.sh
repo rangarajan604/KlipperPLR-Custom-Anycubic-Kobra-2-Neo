@@ -12,6 +12,6 @@ exec python3 "$SCRIPT_DIR/plr.py" generate \
   --bed-factor "${3:-1.05}" \
   --nozzle-factor "${4:-1.05}" \
   --z-lift "${5:-2}" \
-  --dwell-ms "${6:-0}" \
+  --dwell-s "${6:-60}" \
   --fan-off-layers "${7:-2}" \
-  --enclosure-wait-ms "${8:-30000}"
+  --enclosure-wait-s "${8:-30}"
