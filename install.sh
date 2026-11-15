@@ -23,7 +23,7 @@ MOONRAKER_CONF="$CONFIG_DIR/moonraker.conf"
 ACTIVE_CFG="$CONFIG_DIR/plr_custom.cfg"
 UPDATE_CFG="$CONFIG_DIR/update_plr_custom.cfg"
 SHELL_EXTRA="$KLIPPER_EXTRAS/gcode_shell_command.py"
-REPO_URL="https://github.com/rangarajan604/KlipperPLR-Custom-Anycubick_kobra_neo_2.git"
+REPO_URL="https://github.com/rangarajan604/KlipperPLR-Custom-Anycubic-Kobra-2-Neo.git"
 
 if [[ ! -d "$CONFIG_DIR" || ! -f "$PRINTER_CFG" ]]; then
   echo "Expected Klipper config directory and printer.cfg under $CONFIG_DIR" >&2
@@ -134,7 +134,7 @@ PY
 cat > "$UPDATE_CFG" <<EOF
 [update_manager KlipperPLR-Custom]
 type: git_repo
-path: ~/KlipperPLR-Custom-Anycubick_kobra_neo_2
+path: ~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo
 origin: $REPO_URL
 primary_branch: main
 install_script: install.sh
