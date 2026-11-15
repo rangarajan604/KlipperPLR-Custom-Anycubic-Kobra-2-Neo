@@ -1,0 +1,209 @@
+-------------------- Log Start | Sun Nov 15 10:04:18 2026 --------------------
+platform: Linux-6.18.60+rpt-rpi-v8-aarch64-with-glibc2.41
+data_path: /home/rangarajan/printer_data
+is_default_data_path: False
+config_file: /home/rangarajan/printer_data/config/moonraker.conf
+backup_config: /home/rangarajan/printer_data/config/.moonraker.conf.bkp
+startup_warnings: []
+verbose: False
+debug: False
+asyncio_debug: False
+is_backup_config: False
+is_python_package: False
+instance_uuid: 8746e80a0e2f4ddf9287869f0eb8d260
+unix_socket_path: /home/rangarajan/printer_data/comms/moonraker.sock
+structured_logging: False
+software_version: v0.11.0-4-gb559b9a
+git_branch: master
+git_remote: origin
+git_repo_url: https://github.com/Arksine/moonraker
+modified_files: []
+unofficial_components: []
+log_file: /home/rangarajan/printer_data/logs/moonraker.log
+python_version: 3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0]
+launch_args: /home/rangarajan/moonraker-env/bin/python /home/rangarajan/moonraker/moonraker/moonraker.py -d /home/rangarajan/printer_data
+msgspec_enabled: True
+uvloop_enabled: True
+
+#################### Moonraker Configuration ####################
+
+[update_manager KlipperPLR]
+type = git_repo
+path = ~/KlipperPLR
+origin = https://github.com/bigtreetech/KlipperPLR.git
+primary_branch = main
+install_script = install.sh
+is_system_service = False
+
+[server]
+host = 0.0.0.0
+port = 7125
+klippy_uds_address = /home/rangarajan/printer_data/comms/klippy.sock
+
+[file_manager]
+enable_object_processing = True
+
+[authorization]
+trusted_clients = 
+	10.0.0.0/8
+	127.0.0.0/8
+	169.254.0.0/16
+	172.16.0.0/12
+	192.168.0.0/16
+	FE80::/10
+	::1/128
+cors_domains = 
+	*.lan
+	*.local
+	*://localhost
+	*://localhost:*
+	*://my.mainsail.xyz
+	*://app.fluidd.xyz
+
+[octoprint_compat]
+
+[history]
+
+[update_manager mainsail]
+path = /home/rangarajan/mainsail
+repo = mainsail-crew/mainsail
+channel = stable
+type = web
+persistent_files = 
+	config.json
+
+[update_manager mainsail-config]
+managed_services = klipper
+origin = https://github.com/mainsail-crew/mainsail-config.git
+path = /home/rangarajan/mainsail-config
+primary_branch = master
+type = git_repo
+
+[update_manager]
+enable_auto_refresh = True
+
+#################################################################
+All Configuration Files:
+/home/rangarajan/printer_data/config/moonraker.conf
+/home/rangarajan/printer_data/config/update_plr.cfg
+#################################################################
+Loading Sqlite database provider. Sqlite Version: 3.46.1
+Unsafe Shutdown Count: 5
+
+System Info:
+
+***python***
+  version: (3, 13, 5, 'final', 0)
+  version_string: 3.13.5 (main, Aug 10 2026, 12:06:59) [GCC 14.2.0]
+
+***cpu_info***
+  cpu_count: 4
+  bits: 64bit
+  processor: aarch64
+  cpu_desc: 
+  serial_number: 1000000075ecd29a
+  hardware_desc: 
+  model: Raspberry Pi 4 Model B Rev 1.5
+  total_memory: 3886716
+  memory_units: kB
+
+***sd_info***
+  manufacturer_id: 03
+  manufacturer: Sandisk
+  oem_id: 5344
+  product_name: SD64G
+  product_revision: 8.5
+  serial_number: 55a4dc34
+  manufacturer_date: 5/2024
+  capacity: 59.5 GiB
+  total_bytes: 63864569856
+
+***distribution***
+  name: Debian GNU/Linux 13 (trixie)
+  id: debian
+  version: 13
+  version_parts: {'major': '13', 'minor': '', 'build_number': ''}
+  like: 
+  codename: trixie
+  release_info: {}
+  kernel_version: 6.18.60+rpt-rpi-v8
+
+***virtualization***
+  virt_type: none
+  virt_identifier: none
+
+***network***
+
+***canbus***
+
+***Allowed Services***
+  klipper_mcu
+  webcamd
+  MoonCord
+  KlipperScreen
+  moonraker-telegram-bot
+  moonraker-obico
+  sonar
+  crowsnest
+  octoeverywhere
+  ratos-configurator
+Found libcamera Python module, version: v0.7.2+rpt20261009
+
+Systemd unit moonraker.service:
+unit_name: moonraker.service
+is_default: True
+manager: systemd
+Properties:
+**Requires=['sysinit.target', 'system.slice', 'network-online.target', '-.mount']
+**After=['basic.target', 'systemd-journald.socket', 'system.slice', '-.mount', 'network-online.target', 'sysinit.target']
+**SupplementaryGroups=['moonraker-admin']
+**EnvironmentFiles=/home/rangarajan/printer_data/systemd/moonraker.env
+**ExecStart=/home/rangarajan/moonraker-env/bin/python $MOONRAKER_ARGS
+**WorkingDirectory=/home/rangarajan/moonraker
+**FragmentPath=/etc/systemd/system/moonraker.service
+**Description=API Server for Klipper SV1
+**User=rangarajan
+
+Systemd unit klipper.service:
+unit_name: klipper.service
+is_default: True
+manager: systemd
+Properties:
+**Requires=['system.slice', '-.mount', 'sysinit.target']
+**After=['system.slice', 'sysinit.target', 'systemd-journald.socket', 'basic.target', 'klipper-mcu.service', '-.mount', 'network-online.target']
+**SupplementaryGroups=[]
+**EnvironmentFiles=/home/rangarajan/printer_data/systemd/klipper.env
+**ExecStart=/home/rangarajan/klippy-env/bin/python $KLIPPER_ARGS
+**WorkingDirectory=/home/rangarajan/klipper
+**FragmentPath=/etc/systemd/system/klipper.service
+**Description=Klipper 3D Printer Firmware SV1
+**User=rangarajan
+Git Repo moonraker: No warnings detected
+Git Repo klipper: Warnings detected:
+  Repo has untracked source files: ['klippy/extras/gcode_shell_command.py']
+Git Repo KlipperPLR: Warnings detected:
+  Repo is dirty.  Detected the following modified files: ['plr.cfg', 'plr.sh']
+Git Repo mainsail-config: No warnings detected
+Klipper Version: v0.13.0-824-g56a9c605-dirty
+2026-11-15 15:34:18,592 [authorization.py:_prune_conn_handler()] - Trusted Connection Expired, IP: 10.42.0.58
+2026-11-15 15:36:28,945 [authorization.py:_check_trusted_connection()] - Trusted Connection Detected, IP: 10.42.0.58
+2026-11-15 15:36:28,947 [application.py:log_request()] - 101 GET /websocket (10.42.0.58 via 127.0.0.1) [_TRUSTED_USER_] 4.55ms
+2026-11-15 15:36:28,948 [websockets.py:open()] - Websocket Opened: ID: 548146698896, Proxied: True, User Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0, Host Name: rangarajan.local
+2026-11-15 15:36:28,951 [websockets.py:_handle_identify()] - Websocket 548146698896 Client Identified - Name: mainsail, Version: 2.19.0, Type: web
+2026-11-15 15:36:41,877 [websockets.py:on_close()] - Websocket Closed: ID: 548146698896 Close Code: 1001, Close Reason: None, Pong Time Elapsed: 2.93
+2026-11-15 15:36:42,052 [application.py:log_request()] - 101 GET /websocket (10.42.0.58 via 127.0.0.1) [_TRUSTED_USER_] 3.18ms
+2026-11-15 15:36:42,052 [websockets.py:open()] - Websocket Opened: ID: 548146696336, Proxied: True, User Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0, Host Name: rangarajan.local
+2026-11-15 15:36:42,064 [websockets.py:_handle_identify()] - Websocket 548146696336 Client Identified - Name: mainsail, Version: 2.19.0, Type: web
+2026-11-15 15:36:53,223 [klippy_connection.py:_on_connection_closed()] - Klippy Connection Removed
+2026-11-15 15:36:54,480 [klippy_connection.py:_do_connect()] - Klippy Connection Established
+2026-11-15 15:36:58,473 [klippy_connection.py:_on_connection_closed()] - Klippy Connection Removed
+2026-11-15 15:36:59,729 [klippy_connection.py:_do_connect()] - Klippy Connection Established
+2026-11-15 15:37:02,403 [klippy_connection.py:_request_initial_subscriptions()] - Webhooks Subscribed
+2026-11-15 15:37:02,405 [klippy_connection.py:_request_initial_subscriptions()] - GCode Output Subscribed
+2026-11-15 15:37:02,654 [job_state.py:_handle_started()] - Job state initialized: standby
+2026-11-15 15:37:02,924 [klippy_connection.py:_check_ready()] - Klippy ready
+2026-11-15 15:37:03,412 [data_store.py:_init_sensors()] - Configuring available sensors: ['heater_bed', 'temperature_sensor raspberry_pi', 'temperature_sensor mcu_temp', 'extruder']
+2026-11-15 15:53:10,825 [websockets.py:on_close()] - Websocket Closed: ID: 548146696336 Close Code: 1001, Close Reason: None, Pong Time Elapsed: 8.68
+2026-11-15 15:53:11,028 [application.py:log_request()] - 101 GET /websocket (10.42.0.58 via 127.0.0.1) [_TRUSTED_USER_] 3.24ms
+2026-11-15 15:53:11,028 [websockets.py:open()] - Websocket Opened: ID: 548146698896, Proxied: True, User Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0, Host Name: rangarajan.local
+2026-11-15 15:53:11,043 [websockets.py:_handle_identify()] - Websocket 548146698896 Client Identified - Name: mainsail, Version: 2.19.0, Type: web

@@ -411,6 +411,64 @@ class InstallConflictTests(unittest.TestCase):
         )
 
         self.assertEqual(len(conflicts), 3)
+        self.assertTrue(
+            any("[include plr.cfg]" in conflict for conflict in conflicts)
+        )
+        self.assertTrue(
+            any("[gcode_macro RESUME_INTERRUPTED]" in conflict for conflict in conflicts)
+        )
+
+    def test_ignores_dormant_backup_configs(self):
+        (self.config / "printer.cfg").write_text(
+            "[printer]\nkinematics: corexy\n", encoding="utf-8"
+        )
+        (self.config / "printer-backup.cfg").write_text(
+            "[include plr.cfg]\n", encoding="utf-8"
+        )
+
+        conflicts = install_conflicts.find_conflicts(
+            self.config, self.active_config
+        )
+
+        self.assertEqual(conflicts, [])
+
+    def test_allows_clean_symlinked_config(self):
+        printer_config = self.config / "printer.cfg"
+        printer_config.write_text("[include mainsail.cfg]\n", encoding="utf-8")
+        (self.config / "mainsail.cfg").write_text(
+            "[gcode_macro CANCEL_PRINT]\ngcode:\n  RESPOND MSG=cancel\n",
+            encoding="utf-8",
+        )
+        original_is_symlink = Path.is_symlink
+
+        def mark_mainsail_as_symlink(path):
+            return path.name == "mainsail.cfg" or original_is_symlink(path)
+
+        with mock.patch.object(Path, "is_symlink", mark_mainsail_as_symlink):
+            conflicts = install_conflicts.find_conflicts(
+                self.config, self.active_config
+            )
+            result = install_conflicts.disable_conflicts(self.config)
+
+        self.assertEqual(conflicts, [])
+        self.assertEqual(result, (0, 0))
+
+    def test_refuses_plr_conflict_inside_symlinked_config(self):
+        printer_config = self.config / "printer.cfg"
+        printer_config.write_text("[include mainsail.cfg]\n", encoding="utf-8")
+        (self.config / "mainsail.cfg").write_text(
+            "[gcode_macro RESUME_INTERRUPTED]\ngcode:\n", encoding="utf-8"
+        )
+        original_is_symlink = Path.is_symlink
+
+        def mark_mainsail_as_symlink(path):
+            return path.name == "mainsail.cfg" or original_is_symlink(path)
+
+        with mock.patch.object(Path, "is_symlink", mark_mainsail_as_symlink):
+            with self.assertRaises(ValueError):
+                install_conflicts.find_conflicts(
+                    self.config, self.active_config
+                )
 
     def test_disables_detected_sections_and_preserves_other_config(self):
         printer_config = self.config / "printer.cfg"

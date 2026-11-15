@@ -45,17 +45,27 @@ if [[ -f "$ACTIVE_CFG" ]]; then
 fi
 if [[ "$ACTIVE_ALREADY_INSTALLED" == false ]]; then
   if ! CONFLICTS="$(python3 "$PROJECT_DIR/install_conflicts.py" \
-    detect "$CONFIG_DIR" "$ACTIVE_CFG")"; then
+    detect "$CONFIG_DIR" "$ACTIVE_CFG" "$PRINTER_CFG" "$USER_HOME")"; then
     exit 1
   fi
   if [[ -n "$CONFLICTS" ]]; then
-    echo "An existing PLR config, include, or conflicting macro was found:"
-    printf '%s\n' "$CONFLICTS"
+    echo "Preview: existing PLR conflicts found; no files have been changed yet."
+    while IFS= read -r conflict; do
+      [[ -n "$conflict" ]] && printf '  - %s\n' "$conflict"
+    done <<< "$CONFLICTS"
+    echo "If you answer yes, the installer will:"
+    echo "  - Back up $CONFIG_DIR and the existing $PLR_DIR, if present."
+    echo "  - Disable only the listed legacy PLR includes and macro sections."
+    echo "  - Replace or create $ACTIVE_CFG."
+    echo "  - Add missing [force_move], [exclude_object], or [save_variables] sections there."
+    echo "  - Install or replace $PLR_DIR/plr.py, plr.sh, and clear_plr.sh."
+    echo "  - Update $UPDATE_CFG and add missing PLR includes to printer.cfg and moonraker.conf."
+    echo "  - Back up and update $SHELL_EXTRA if its installed copy differs."
     answer=""
     if [[ -t 0 ]]; then
-      read -r -p "Back up the config and replace the old PLR? [y/N]: " answer || true
+      read -r -p "Proceed with these changes? [y/N]: " answer || true
     elif [[ -r /dev/tty ]]; then
-      read -r -p "Back up the config and replace the old PLR? [y/N]: " answer \
+      read -r -p "Proceed with these changes? [y/N]: " answer \
         </dev/tty || true
     else
       echo "No interactive terminal is available; leaving existing config unchanged." >&2
@@ -89,7 +99,8 @@ if [[ "$ACTIVE_ALREADY_INSTALLED" == false ]]; then
         if [[ -d "$RUNTIME_BACKUP" ]]; then
           echo "Existing PLR files backed up at $RUNTIME_BACKUP"
         fi
-        python3 "$PROJECT_DIR/install_conflicts.py" disable "$CONFIG_DIR"
+        python3 "$PROJECT_DIR/install_conflicts.py" disable \
+          "$CONFIG_DIR" "$PRINTER_CFG" "$USER_HOME"
         ;;
       *)
         echo "Installation cancelled; existing configuration was not changed." >&2

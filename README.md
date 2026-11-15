@@ -91,7 +91,8 @@ The installer:
 - adds a Moonraker update-manager entry for this custom GitHub repository.
 
 If another PLR, an unmanaged `plr_custom.cfg`, or a conflicting macro is found,
-the installer asks whether to replace it. Answer `y` to back up the entire
+the installer previews the affected file paths and exact include/macro headings
+before asking whether to replace it. Answer `y` to back up the entire
 config directory to a timestamped `config.backup-before-custom-plr-*` folder
 (and any existing PLR runtime files to `plr_custom.backup-before-custom-plr-*`)
 then disable detected legacy PLR includes/macros before installing. Answer `n`
