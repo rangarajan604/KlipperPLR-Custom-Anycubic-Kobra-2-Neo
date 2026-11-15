@@ -20,6 +20,7 @@ TEMPERATURE_RE = re.compile(
     rf"^\s*(M104|M109|M140|M190)\s+.*?\bS\s*({NUMBER})(?:\s|$)",
     re.IGNORECASE,
 )
+FAN_COMMAND_RE = re.compile(r"^M(?:106|107)(?:\s|$)", re.IGNORECASE)
 
 
 class RecoveryError(Exception):
@@ -65,6 +66,33 @@ def parse_motion(line: str) -> Tuple[Optional[str], Dict[str, float]]:
         key.upper(): float(value) for key, value in PARAMETER_RE.findall(command)
     }
     return command, parameters
+
+
+def parse_fan_command(line: str) -> Optional[str]:
+    command = line.split(";", 1)[0].strip().upper()
+    return command if FAN_COMMAND_RE.match(command) else None
+
+
+def find_fan_restore_index(
+    motions: List[Tuple[int, str, Dict[str, float]]],
+    start_index: int,
+    resume_layer_z: float,
+    layer_count: int,
+) -> int:
+    current_layer_z = resume_layer_z
+    counted_layers = 0
+    for index, _, parameters in motions:
+        if index <= start_index:
+            continue
+        z_value = parameters.get("Z")
+        if z_value is not None and z_value > current_layer_z + 0.005:
+            current_layer_z = z_value
+            counted_layers += 1
+            if counted_layers == layer_count:
+                return index
+    raise RecoveryError(
+        "Not enough higher layer Z moves to restore the part-cooling fan"
+    )
 
 
 def metadata_temperature(
@@ -118,7 +146,12 @@ def find_normal_temperatures(
 
 
 def validate_options(
-    bed_factor: float, nozzle_factor: float, z_lift: float, dwell_ms: int
+    bed_factor: float,
+    nozzle_factor: float,
+    z_lift: float,
+    dwell_ms: int,
+    fan_off_layers: int,
+    enclosure_wait_ms: int,
 ) -> None:
     if not math.isfinite(bed_factor) or not 1.0 <= bed_factor <= 1.10:
         raise RecoveryError("Bed preheat factor must be between 1.00 and 1.10")
@@ -128,6 +161,10 @@ def validate_options(
         raise RecoveryError("Z lift must be between 0 and 20 mm")
     if not 0 <= dwell_ms <= 60000:
         raise RecoveryError("Dwell must be between 0 and 60000 ms")
+    if not 0 <= fan_off_layers <= 2:
+        raise RecoveryError("Part-cooling fan off layers must be 0, 1, or 2")
+    if not 0 <= enclosure_wait_ms <= 60000:
+        raise RecoveryError("Enclosure wait must be between 0 and 60000 ms")
 
 
 def build_recovery(
@@ -139,8 +176,17 @@ def build_recovery(
     nozzle_factor: float,
     z_lift: float,
     dwell_ms: int,
+    fan_off_layers: int = 2,
+    enclosure_wait_ms: int = 30000,
 ) -> Tuple[float, float, float]:
-    validate_options(bed_factor, nozzle_factor, z_lift, dwell_ms)
+    validate_options(
+        bed_factor,
+        nozzle_factor,
+        z_lift,
+        dwell_ms,
+        fan_off_layers,
+        enclosure_wait_ms,
+    )
     if not math.isfinite(saved_z) or saved_z <= 0:
         raise RecoveryError("Saved Z must be a positive finite number")
     if not source_path.is_file():
@@ -220,11 +266,18 @@ def build_recovery(
         code = line.split(";", 1)[0].strip().upper()
         if re.match(r"^M(?:82|83)(?:\s|$)", code):
             extrusion_mode = code.split()[0]
-        if code.startswith("M106"):
-            fan_command = code
+        parsed_fan_command = parse_fan_command(line)
+        if parsed_fan_command:
+            fan_command = parsed_fan_command
         _, parameters = parse_motion(line)
         if "E" in parameters:
             last_e = parameters["E"]
+
+    fan_restore_index = None
+    if fan_off_layers:
+        fan_restore_index = find_fan_restore_index(
+            motions, resume_index, resume_layer_z, fan_off_layers
+        )
 
     generated = [
         "SET_GCODE_OFFSET Z=0 MOVE=0",
@@ -240,8 +293,15 @@ def build_recovery(
         f"G1 Z{z_lift:g} F600",
         "G90",
         "G28 X Y",
-        "EXCLUDE_OBJECT_DEFINE RESET=1",
     ]
+    if fan_off_layers:
+        generated.append("M106 S0")
+    generated.extend(
+        [
+            f"G4 P{enclosure_wait_ms}",
+            "EXCLUDE_OBJECT_DEFINE RESET=1",
+        ]
+    )
     generated.extend(object_definitions)
     generated.extend(
         f"EXCLUDE_OBJECT NAME={name}"
@@ -249,8 +309,6 @@ def build_recovery(
     )
     if active_object:
         generated.append(f"EXCLUDE_OBJECT_START NAME={active_object}")
-    if fan_command:
-        generated.append(fan_command)
     generated.extend(
         [
             f"G1 X{resume_parameters['X']:g} Y{resume_parameters['Y']:g} F6000",
@@ -260,7 +318,20 @@ def build_recovery(
             "M118 PLR resume position prepared",
         ]
     )
-    generated.extend(lines[resume_index:])
+    if fan_off_layers:
+        restore_fan_command = fan_command
+        for index, line in enumerate(lines[resume_index:], start=resume_index):
+            current_fan_command = parse_fan_command(line)
+            if index < fan_restore_index and current_fan_command:
+                restore_fan_command = current_fan_command
+                continue
+            if index == fan_restore_index and restore_fan_command:
+                generated.append(restore_fan_command)
+            generated.append(line)
+    else:
+        if fan_command:
+            generated.append(fan_command)
+        generated.extend(lines[resume_index:])
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -299,6 +370,8 @@ def run_generate(args: argparse.Namespace) -> None:
         args.nozzle_factor,
         args.z_lift,
         args.dwell_ms,
+        args.fan_off_layers,
+        args.enclosure_wait_ms,
     )
 
 
@@ -326,6 +399,8 @@ def make_parser() -> argparse.ArgumentParser:
     generate.add_argument("--nozzle-factor", type=float, default=1.05)
     generate.add_argument("--z-lift", type=float, default=2)
     generate.add_argument("--dwell-ms", type=int, default=0)
+    generate.add_argument("--fan-off-layers", type=int, default=2)
+    generate.add_argument("--enclosure-wait-ms", type=int, default=30000)
     clear = subparsers.add_parser("clear", help="remove the saved recovery G-code")
     clear.add_argument("--variables", type=Path, required=True)
     clear.add_argument("--output-dir", type=Path, default=None)

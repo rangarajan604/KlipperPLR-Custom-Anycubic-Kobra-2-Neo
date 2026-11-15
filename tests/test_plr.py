@@ -6,6 +6,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import plr
+import uninstall as uninstall_module
 
 
 class RecoveryGenerationTests(unittest.TestCase):
@@ -28,6 +29,7 @@ class RecoveryGenerationTests(unittest.TestCase):
                     "; nozzle_temperature_initial_layer = " + str(first_nozzle),
                     "M140 S" + str(first_bed),
                     "M104 S" + str(first_nozzle),
+                    "M106 S64",
                     "G1 Z0.2 F600",
                     "G1 X10 Y10 E0.5",
                     "EXCLUDE_OBJECT_DEFINE NAME=PART_A",
@@ -37,12 +39,24 @@ class RecoveryGenerationTests(unittest.TestCase):
                     "G1 X21 Y21 E0.6",
                     "M83",
                     "M106 S128",
+                    "G1 Z0.6 F600",
+                    "M106 S160",
+                    "G1 X22 Y22 E0.7",
+                    "G1 Z0.8 F600",
+                    "M106 S192",
+                    "G1 X23 Y23 E0.8",
                 ]
             ),
             encoding="utf-8",
         )
 
-    def generate(self, bed_factor=1.05, nozzle_factor=1.05):
+    def generate(
+        self,
+        bed_factor=1.05,
+        nozzle_factor=1.05,
+        fan_off_layers=0,
+        enclosure_wait_ms=0,
+    ):
         return plr.build_recovery(
             self.source,
             0.2,
@@ -52,6 +66,8 @@ class RecoveryGenerationTests(unittest.TestCase):
             nozzle_factor,
             2,
             0,
+            fan_off_layers,
+            enclosure_wait_ms,
         )
 
     def test_reads_normal_targets_and_ignores_first_layer_targets(self):
@@ -76,6 +92,39 @@ class RecoveryGenerationTests(unittest.TestCase):
         self.assertIn("EXCLUDE_OBJECT_START NAME=PART_A", generated)
         self.assertIn("M106 S128", generated)
         self.assertIn("M83", generated)
+        home_index = generated.index("G28 X Y")
+        self.assertEqual(generated[home_index + 1], "G4 P0")
+
+    def test_part_fan_stays_off_for_two_layers_then_restores(self):
+        self.write_gcode()
+        self.generate(fan_off_layers=2, enclosure_wait_ms=30000)
+        generated = self.output.read_text(encoding="utf-8").splitlines()
+        home_index = generated.index("G28 X Y")
+        fan_off_index = generated.index("M106 S0")
+        wait_index = generated.index("G4 P30000")
+        resume_index = generated.index("G1 X20 Y20 F6000")
+        restore_index = generated.index("G1 Z0.8 F600")
+        fan_restore_index = generated.index("M106 S160")
+        self.assertLess(home_index, fan_off_index)
+        self.assertLess(fan_off_index, wait_index)
+        self.assertLess(wait_index, resume_index)
+        self.assertLess(fan_off_index, restore_index)
+        self.assertLess(fan_restore_index, restore_index)
+        self.assertNotIn("M106 S128", generated)
+        self.assertIn("M106 S192", generated)
+
+    def test_part_fan_can_resume_after_one_layer(self):
+        self.write_gcode()
+        self.generate(fan_off_layers=1, enclosure_wait_ms=30000)
+        generated = self.output.read_text(encoding="utf-8").splitlines()
+        self.assertLess(
+            generated.index("M106 S128"), generated.index("G1 Z0.6 F600")
+        )
+
+    def test_part_fan_off_layer_count_is_limited_to_two(self):
+        self.write_gcode()
+        with self.assertRaises(plr.RecoveryError):
+            self.generate(fan_off_layers=3)
 
     def test_uses_material_specific_targets(self):
         self.write_gcode(bed=100, nozzle=245, first_bed=110, first_nozzle=255)
@@ -153,6 +202,11 @@ class RecoveryGenerationTests(unittest.TestCase):
         ):
             self.assertEqual(plr.main(), 0)
         self.assertTrue((self.root / "sample.gcode").is_file())
+        generated = (self.root / "sample.gcode").read_text(
+            encoding="utf-8"
+        ).splitlines()
+        self.assertIn("M106 S0", generated)
+        self.assertIn("G4 P30000", generated)
 
     def test_clear_removes_only_generated_gcode_files(self):
             variables = self.root / "variables.cfg"
@@ -178,6 +232,158 @@ class RecoveryGenerationTests(unittest.TestCase):
                 self.assertEqual(plr.main(), 0)
             self.assertFalse(generated.exists())
             self.assertTrue(unrelated.exists())
+
+
+class UninstallTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+        self.home = self.root / "printer-home"
+        self.config = self.home / "printer_data" / "config"
+        self.output_dir = self.home / "printer_data" / "gcodes" / "plr_custom"
+        self.plr_dir = self.home / "printer_data" / "plr_custom"
+        self.extra = (
+            self.home / "klipper" / "klippy" / "extras"
+            / "gcode_shell_command.py"
+        )
+        self.project_extra = self.root / "project" / "gcode_shell_command.py"
+        self.config.mkdir(parents=True)
+        self.output_dir.mkdir(parents=True)
+        self.plr_dir.mkdir(parents=True)
+        self.extra.parent.mkdir(parents=True)
+        self.project_extra.parent.mkdir(parents=True)
+        self.project_extra.write_text("project helper\n", encoding="utf-8")
+        self.home.joinpath("printer_data", "config", "variables.cfg").write_text(
+            "[Variables]\n", encoding="utf-8"
+        )
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_removes_project_files_and_preserves_user_data(self):
+        (self.config / "printer.cfg").write_text(
+            "[include plr_custom.cfg]\n[printer]\n", encoding="utf-8"
+        )
+        (self.config / "moonraker.conf").write_text(
+            "[include update_plr_custom.cfg]\n"
+            "# [include update_plr.cfg]\n[server]\n",
+            encoding="utf-8",
+        )
+        (self.config / "plr_custom.cfg").write_text(
+            "# " + uninstall_module.MANAGED_MARKER + "\n", encoding="utf-8"
+        )
+        (self.config / "update_plr_custom.cfg").write_text(
+            "[update_manager KlipperPLR-Custom]\n", encoding="utf-8"
+        )
+        for name in ("plr.py", "plr.sh", "clear_plr.sh"):
+            (self.plr_dir / name).write_text("installed\n", encoding="utf-8")
+        (self.output_dir / "resume.gcode").write_text("G1 X1\n", encoding="utf-8")
+        (self.output_dir / "resume.GCODE").write_text("G1 X2\n", encoding="utf-8")
+        (self.output_dir / "notes.txt").write_text("keep\n", encoding="utf-8")
+        self.extra.write_text("shared helper\n", encoding="utf-8")
+
+        messages = uninstall_module.uninstall(self.home, self.project_extra)
+
+        self.assertNotIn("[include plr_custom.cfg]", (self.config / "printer.cfg").read_text())
+        moonraker = (self.config / "moonraker.conf").read_text()
+        self.assertNotIn("[include update_plr_custom.cfg]", moonraker)
+        self.assertIn("# [include update_plr.cfg]", moonraker)
+        self.assertFalse((self.config / "plr_custom.cfg").exists())
+        self.assertFalse((self.config / "update_plr_custom.cfg").exists())
+        self.assertFalse((self.plr_dir / "plr.py").exists())
+        self.assertFalse((self.output_dir / "resume.gcode").exists())
+        self.assertFalse((self.output_dir / "resume.GCODE").exists())
+        self.assertTrue((self.output_dir / "notes.txt").exists())
+        self.assertTrue((self.config / "variables.cfg").exists())
+        self.assertEqual(self.extra.read_text(encoding="utf-8"), "shared helper\n")
+        self.assertFalse(self.plr_dir.exists())
+        self.assertTrue(any("Saved variables" in message for message in messages))
+
+    def test_restores_backed_up_shared_helper(self):
+        self.extra.write_bytes(self.project_extra.read_bytes())
+        backup = self.extra.with_name(self.extra.name + ".pre-custom-plr")
+        backup.write_text("original helper\n", encoding="utf-8")
+
+        uninstall_module.uninstall(self.home, self.project_extra)
+
+        self.assertEqual(self.extra.read_text(encoding="utf-8"), "original helper\n")
+        self.assertFalse(backup.exists())
+
+    def test_preserves_modified_shared_helper_and_backup(self):
+        self.extra.write_text("customized helper\n", encoding="utf-8")
+        backup = self.extra.with_name(self.extra.name + ".pre-custom-plr")
+        backup.write_text("original helper\n", encoding="utf-8")
+
+        messages = uninstall_module.uninstall(self.home, self.project_extra)
+
+        self.assertEqual(self.extra.read_text(encoding="utf-8"), "customized helper\n")
+        self.assertEqual(backup.read_text(encoding="utf-8"), "original helper\n")
+        self.assertTrue(any("differs from the project copy" in message for message in messages))
+
+    def test_removes_empty_recovery_directory(self):
+        (self.config / "printer.cfg").write_text("", encoding="utf-8")
+        (self.config / "moonraker.conf").write_text("", encoding="utf-8")
+
+        messages = uninstall_module.uninstall(self.home, self.project_extra)
+
+        self.assertFalse(self.output_dir.exists())
+        self.assertFalse(self.plr_dir.exists())
+        self.assertTrue(
+            any("Removed 2 empty PLR directory/directories." == message
+                for message in messages)
+        )
+
+    def test_refuses_to_remove_unmarked_config(self):
+        active_config = self.config / "plr_custom.cfg"
+        active_config.write_text("[gcode_macro RESUME_INTERRUPTED]\n", encoding="utf-8")
+        managed_file = self.plr_dir / "plr.py"
+        managed_file.write_text("installed\n", encoding="utf-8")
+
+        with self.assertRaises(uninstall_module.UninstallError):
+            uninstall_module.uninstall(self.home, self.project_extra)
+
+        self.assertTrue(active_config.exists())
+        self.assertTrue(managed_file.exists())
+
+    def test_refuses_invalid_recovery_path_before_editing_config(self):
+        printer_config = self.config / "printer.cfg"
+        printer_config.write_text("[include plr_custom.cfg]\n", encoding="utf-8")
+        self.output_dir.rmdir()
+        self.output_dir.write_text("user data\n", encoding="utf-8")
+
+        with self.assertRaises(uninstall_module.UninstallError):
+            uninstall_module.uninstall(self.home, self.project_extra)
+
+        self.assertIn("[include plr_custom.cfg]", printer_config.read_text())
+        self.assertEqual(self.output_dir.read_text(), "user data\n")
+
+    def test_moves_standard_clone_to_backup_and_preserves_its_files(self):
+        clone = self.home / uninstall_module.PROJECT_DIRECTORY
+        clone.mkdir()
+        (clone / ".git").mkdir()
+        (clone / "local-change.txt").write_text("keep me\n", encoding="utf-8")
+
+        message = uninstall_module.move_clone_to_backup(self.home, clone)
+
+        self.assertFalse(clone.exists())
+        self.assertIn("files preserved", message)
+        backup = next(self.home.glob(
+            uninstall_module.PROJECT_DIRECTORY + ".uninstalled-*"
+        ))
+        self.assertTrue((backup / ".git").is_dir())
+        self.assertEqual(
+            (backup / "local-change.txt").read_text(encoding="utf-8"),
+            "keep me\n",
+        )
+
+    def test_does_not_move_clone_outside_standard_home_path(self):
+        clone = self.root / "elsewhere" / uninstall_module.PROJECT_DIRECTORY
+        clone.mkdir(parents=True)
+
+        message = uninstall_module.move_clone_to_backup(self.home, clone)
+
+        self.assertTrue(clone.is_dir())
+        self.assertIn("left in place", message)
 
 
 if __name__ == "__main__":

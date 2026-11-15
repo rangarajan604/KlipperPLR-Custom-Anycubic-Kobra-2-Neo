@@ -176,25 +176,51 @@ Edit the constants near the top of `[gcode_macro RESUME_INTERRUPTED]` in
 {% set nozzle_preheat_factor = 1.05 %}
 {% set z_lift = 2 %}
 {% set dwell_ms = 0 %}
+{% set fan_off_layers = 2 %}
+{% set enclosure_wait_ms = 30000 %}
 ```
+
+For an existing installation, the installer preserves your active config.
+Add the two new settings to its `RESUME_INTERRUPTED` macro and pass
+`{fan_off_layers} {enclosure_wait_ms}` after `{dwell_ms}` in its
+`RUN_SHELL_COMMAND` parameters to make them editable in Mainsail. The updated
+shell script defaults to 2 layers and 30 seconds if those parameters are not
+passed.
 
 The script reads **normal** bed and nozzle targets from the interrupted
 G-code's metadata (preferred) or heater commands before the resume position.
 It does not use first-layer temperature metadata. It multiplies normal targets
 by the configured factors, waits for both preheat targets, then restores the
-normal targets before lifting and homing XY.
+normal targets before lifting and homing XY. After homing XY, it waits the
+configured enclosure time. The part-cooling fan (`[fan]`, controlled by
+`M106`) is kept off for the configured number of resumed layers, then the
+G-code's fan setting is restored. The hotend heatsink fan
+(`[heater_fan extruder_fan]`) is not disabled.
 
-Factors are limited to 1.00-1.10; lift is limited to 0-20 mm; dwell is limited
-to 0-60000 ms. Klipper still enforces the printer's configured heater
-maximums. If a preheat exceeds a heater's maximum, the recovery will fail;
-lower that heater's factor in Mainsail.
+`fan_off_layers` may be 0, 1, or 2; 0 disables the fan pause. The layer count
+uses upward absolute Z moves in the source G-code, so inspect the generated
+recovery file if the slicer uses Z-hop. Enclosure wait and dwell are limited
+to 0-60000 ms; lift is limited to 0-20 mm; preheat factors are limited to
+1.00-1.10. Klipper still enforces the printer's configured heater maximums.
+If a preheat exceeds a heater's maximum, recovery will fail; lower that
+heater's factor in Mainsail.
 
 ## Uninstall
 
 Run `bash ./uninstall.sh` from this project directory on the printer. It removes
 only this project's config include, update-manager entry, and dedicated
-`plr_custom` files. It does not remove shared Klipper extras or saved
-variable data.
+`plr_custom` scripts/config and generated `.gcode` files. Empty PLR directories
+are removed; directories containing other files are kept. Saved `variables.cfg`
+data and unrelated files are always retained. The shared
+`gcode_shell_command.py` extra is retained unless the installer saved a
+`.pre-custom-plr` copy and the installed helper still matches this project; in
+that case, the previous helper is restored. If the installed helper was
+modified, both it and the backup are left in place. The uninstaller refuses to
+remove an active `plr_custom.cfg` unless it has this project's managed-file
+marker. After successful cleanup, if run from the standard clone at
+`~/KlipperPLR-Custom-Anycubic-Kobra-2-Neo`, the uninstaller moves that folder
+to a timestamped `.uninstalled-*` backup name. This removes it from the usual
+clone path while preserving repository history, local edits, and other files.
 
 ## License and attribution
 
