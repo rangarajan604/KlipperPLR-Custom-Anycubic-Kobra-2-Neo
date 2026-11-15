@@ -29,29 +29,74 @@ if [[ ! -d "$CONFIG_DIR" || ! -f "$PRINTER_CFG" ]]; then
   echo "Expected Klipper config directory and printer.cfg under $CONFIG_DIR" >&2
   exit 1
 fi
+for managed_path in "$ACTIVE_CFG" "$UPDATE_CFG" "$PLR_DIR" \
+  "$PLR_DIR/plr.py" "$PLR_DIR/plr.sh" "$PLR_DIR/clear_plr.sh"; do
+  if [[ -L "$managed_path" ]]; then
+    echo "Refusing to overwrite symlinked path: $managed_path" >&2
+    exit 1
+  fi
+done
 ACTIVE_ALREADY_INSTALLED=false
 if [[ -f "$ACTIVE_CFG" ]]; then
   if grep -Fq "Managed by KlipperPLR-Custom-Anycubic-Kobra-2-Neo." "$ACTIVE_CFG"; then
     ACTIVE_ALREADY_INSTALLED=true
     echo "Preserving existing Mainsail-edited custom PLR config."
-  else
-    echo "$ACTIVE_CFG already exists and is not managed by this project; refusing to overwrite it." >&2
-    exit 1
   fi
 fi
-if [[ "$ACTIVE_ALREADY_INSTALLED" == false ]] && \
-  grep -R -E '^\[include[[:space:]]+plr\.cfg\]|^\[gcode_macro[[:space:]]+(RESUME_INTERRUPTED|G31|save_last_file|clear_last_file|LOG_Z)\]' \
-  "$CONFIG_DIR" --include='*.cfg' >/dev/null 2>&1; then
-  echo "An existing PLR include or RESUME_INTERRUPTED macro was found." >&2
-  echo "Back up and disable the existing PLR before installing this project." >&2
-  exit 1
-fi
-if [[ "$ACTIVE_ALREADY_INSTALLED" == false ]] && \
-  grep -R -E '^\[gcode_macro[[:space:]]+(EXCLUDE_OBJECT|EXCLUDE_OBJECT_DEFINE)\]' \
-  "$CONFIG_DIR" --include='*.cfg' >/dev/null 2>&1; then
-  echo "An existing object-exclusion wrapper was found." >&2
-  echo "Remove or merge it before installing this project's exclusion persistence macros." >&2
-  exit 1
+if [[ "$ACTIVE_ALREADY_INSTALLED" == false ]]; then
+  if ! CONFLICTS="$(python3 "$PROJECT_DIR/install_conflicts.py" \
+    detect "$CONFIG_DIR" "$ACTIVE_CFG")"; then
+    exit 1
+  fi
+  if [[ -n "$CONFLICTS" ]]; then
+    echo "An existing PLR config, include, or conflicting macro was found:"
+    printf '%s\n' "$CONFLICTS"
+    answer=""
+    if [[ -t 0 ]]; then
+      read -r -p "Back up the config and replace the old PLR? [y/N]: " answer || true
+    elif [[ -r /dev/tty ]]; then
+      read -r -p "Back up the config and replace the old PLR? [y/N]: " answer \
+        </dev/tty || true
+    else
+      echo "No interactive terminal is available; leaving existing config unchanged." >&2
+      exit 1
+    fi
+    case "$answer" in
+      y|Y|yes|YES|Yes)
+        BACKUP_STAMP="$(date +%Y%m%d-%H%M%S)"
+        BACKUP_SUFFIX=""
+        suffix=1
+        CONFIG_BACKUP="$USER_HOME/printer_data/config.backup-before-custom-plr-$BACKUP_STAMP"
+        RUNTIME_BACKUP="$USER_HOME/printer_data/plr_custom.backup-before-custom-plr-$BACKUP_STAMP"
+        while [[ -e "$CONFIG_BACKUP" || -e "$RUNTIME_BACKUP" ]]; do
+          BACKUP_SUFFIX="-$suffix"
+          CONFIG_BACKUP="$USER_HOME/printer_data/config.backup-before-custom-plr-$BACKUP_STAMP$BACKUP_SUFFIX"
+          RUNTIME_BACKUP="$USER_HOME/printer_data/plr_custom.backup-before-custom-plr-$BACKUP_STAMP$BACKUP_SUFFIX"
+          suffix=$((suffix + 1))
+        done
+        cp -a "$CONFIG_DIR" "$CONFIG_BACKUP"
+        if [[ -d "$PLR_DIR" ]]; then
+          cp -a "$PLR_DIR" "$RUNTIME_BACKUP"
+        fi
+        if [[ "$PRINTER_USER" != "$USER" ]]; then
+          PRINTER_GROUP="$(id -gn "$PRINTER_USER")"
+          chown -R "$PRINTER_USER:$PRINTER_GROUP" "$CONFIG_BACKUP"
+          if [[ -d "$RUNTIME_BACKUP" ]]; then
+            chown -R "$PRINTER_USER:$PRINTER_GROUP" "$RUNTIME_BACKUP"
+          fi
+        fi
+        echo "Config backup created at $CONFIG_BACKUP"
+        if [[ -d "$RUNTIME_BACKUP" ]]; then
+          echo "Existing PLR files backed up at $RUNTIME_BACKUP"
+        fi
+        python3 "$PROJECT_DIR/install_conflicts.py" disable "$CONFIG_DIR"
+        ;;
+      *)
+        echo "Installation cancelled; existing configuration was not changed." >&2
+        exit 1
+        ;;
+    esac
+  fi
 fi
 
 mkdir -p "$PLR_DIR" "$KLIPPER_EXTRAS" "$GCODE_DIR"

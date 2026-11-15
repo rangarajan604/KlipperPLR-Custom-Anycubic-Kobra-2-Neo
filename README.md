@@ -82,17 +82,21 @@ put a GitHub token in this project or its install script.
 The installer:
 
 - installs files under `~/printer_data/plr_custom/`;
-- creates `plr_custom.cfg` only if it does not already exist;
+- creates its managed `plr_custom.cfg` or preserves this project's existing
+  Mainsail-edited config;
 - includes it from `printer.cfg`;
 - preserves an existing `[save_variables]` section, or adds one if absent;
 - ensures `[exclude_object]` and enabled `[force_move]` sections exist;
 - backs up an existing shell-command helper before updating it; and
 - adds a Moonraker update-manager entry for this custom GitHub repository.
 
-If another PLR is already installed, disable its include and remove/disable its
-duplicate `RESUME_INTERRUPTED` macro before installing this one. The installer
-stops if it detects an existing PLR include or resume macro, to avoid duplicate
-Klipper commands. Back up your printer configuration before installation.
+If another PLR, an unmanaged `plr_custom.cfg`, or a conflicting macro is found,
+the installer asks whether to replace it. Answer `y` to back up the entire
+config directory to a timestamped `config.backup-before-custom-plr-*` folder
+(and any existing PLR runtime files to `plr_custom.backup-before-custom-plr-*`)
+then disable detected legacy PLR includes/macros before installing. Answer `n`
+or press Enter to cancel without changing the existing config. These backups
+preserve the original files for manual restoration.
 
 After installation, run `RESTART` from the Mainsail console and wait for Klipper
 to become ready.

@@ -6,6 +6,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import plr
+import install_conflicts
 import uninstall as uninstall_module
 
 
@@ -384,6 +385,78 @@ class UninstallTests(unittest.TestCase):
 
         self.assertTrue(clone.is_dir())
         self.assertIn("left in place", message)
+
+
+class InstallConflictTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.config = Path(self.temp_dir.name) / "config"
+        self.config.mkdir()
+        self.active_config = self.config / "plr_custom.cfg"
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_detects_legacy_includes_and_conflicting_macros(self):
+        (self.config / "printer.cfg").write_text(
+            "[include plr.cfg]\n"
+            "[printer]\nkinematics: corexy\n"
+            "[gcode_macro RESUME_INTERRUPTED]\ngcode:\n  G1 X1\n"
+            "[gcode_macro EXCLUDE_OBJECT]\ngcode:\n  G1 X2\n",
+            encoding="utf-8",
+        )
+
+        conflicts = install_conflicts.find_conflicts(
+            self.config, self.active_config
+        )
+
+        self.assertEqual(len(conflicts), 3)
+
+    def test_disables_detected_sections_and_preserves_other_config(self):
+        printer_config = self.config / "printer.cfg"
+        printer_config.write_text(
+            "[include plr.cfg]\n"
+            "[printer]\nkinematics: corexy\n"
+            "[gcode_macro RESUME_INTERRUPTED]\ngcode:\n  G1 X1\n"
+            "[gcode_macro CUSTOM]\ngcode:\n  RESPOND MSG=keep\n",
+            encoding="utf-8",
+        )
+
+        include_count, macro_count = install_conflicts.disable_conflicts(
+            self.config
+        )
+        updated = printer_config.read_text(encoding="utf-8")
+
+        self.assertEqual((include_count, macro_count), (1, 1))
+        self.assertIn("# Disabled by custom PLR installer after backup: [include plr.cfg]", updated)
+        self.assertIn(
+            "# Disabled by custom PLR installer after backup: "
+            "[gcode_macro RESUME_INTERRUPTED]",
+            updated,
+        )
+        self.assertIn("#   G1 X1", updated)
+        self.assertIn("[printer]\nkinematics: corexy", updated)
+        self.assertIn("[gcode_macro CUSTOM]\ngcode:\n  RESPOND MSG=keep", updated)
+
+    def test_detects_existing_unmanaged_active_config(self):
+        self.active_config.write_text(
+            "[gcode_macro RESUME_INTERRUPTED]\ngcode:\n", encoding="utf-8"
+        )
+
+        conflicts = install_conflicts.find_conflicts(
+            self.config, self.active_config
+        )
+
+        self.assertTrue(any("unmanaged PLR config" in item for item in conflicts))
+
+    def test_detects_even_an_empty_unmanaged_active_config(self):
+        self.active_config.write_text("", encoding="utf-8")
+
+        conflicts = install_conflicts.find_conflicts(
+            self.config, self.active_config
+        )
+
+        self.assertTrue(any("unmanaged PLR config" in item for item in conflicts))
 
 
 if __name__ == "__main__":
